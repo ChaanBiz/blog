@@ -1,11 +1,41 @@
 @import "tailwindcss";
 
+@layer utilities {
+  .h1 {
+    font-size: 2rem;
+    line-height: 3rem;
+    font-weight: bold;
+  }
+  .h2 {
+    font-size: 1.5rem;
+    line-height: 2.5rem;
+    font-weight: 600;
+  }
+  .h3 {
+    font-size: 1.25rem;
+    line-height: 2rem;
+    font-weight: 600;
+  }
+  .h4 {
+    font-size: 1rem;
+    line-height: 1.75rem;
+    font-weight: 400;
+  }
+  .h5 {
+    font-size: 0.75rem;
+    line-height: 1.5rem;
+    font-weight: 400;
+  }
+  .slim-h2 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 400;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
