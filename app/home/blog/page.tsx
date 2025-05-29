@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 interface Post {
@@ -19,16 +19,12 @@ export default function BlogPage() {
   const [draftPosts, setDraftPosts] = useState<Post[]>([]);
   const supabase = createClientComponentClient();
 
-  useEffect(() => {
-    fetchActivePosts();
-  }, []);
-
-  const fetchActivePosts = async () => {
+  const fetchActivePosts = useCallback(async () => {
     const { data, error } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+      .from("posts")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching active posts:", error);
@@ -36,7 +32,11 @@ export default function BlogPage() {
       setActivePosts(data);
       console.log("Active posts fetched successfully:", data);
     }
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchActivePosts();
+  }, [fetchActivePosts]);
 
   useEffect(() => {
     const savedDrafts = localStorage.getItem("draftPosts");
