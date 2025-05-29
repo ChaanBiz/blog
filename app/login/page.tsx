@@ -1,11 +1,13 @@
 "use client";
 
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function LoginPage() {
     const router = useRouter();
+    const supabase = createClientComponentClient();
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -69,28 +71,54 @@ export default function LoginPage() {
         }
 
         try {
-            const response = await fetch("/api/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password,
-                }),
+            // const response = await fetch("/api/login", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //     },
+            //     body: JSON.stringify({
+            //         email: formData.email,
+            //         password: formData.password,
+            //     }),
+            // });
+
+            //const data = await response.json();
+
+            // if (response.ok) {
+            //     console.log("Login successful:", data);
+            //     router.push("/home");
+            // } else {
+            //     console.log("Login failed:", data);
+            //     setErrors(prev => ({
+            //         ...prev,
+            //         general: data.message || "Invalid username or password",
+            //     }));
+            // }
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: formData.email,
+                password: formData.password,
             });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                console.log("Login successful:", data);
-                router.push("/home");
-            } else {
-                console.log("Login failed:", data);
+            if (error) {
+                console.log("Login failed:", error);
                 setErrors(prev => ({
                     ...prev,
-                    general: data.message || "Invalid username or password",
-                }));
+                    general: error.message || "Invalid username or password"
+                }))
+                return
+            }
+
+            if (data.session) {
+                console.log("Login successful:", data);
+                await supabase.auth.setSession(data.session);
+                
+                try {
+                    await router.push("/home");
+                } catch (navigationError) {
+                    console.error("Router navigation failed, using window.location:", navigationError);
+                    window.location.href = "/home";
+                }
             }
         } catch (error) {
             console.error("Login error:", error);
