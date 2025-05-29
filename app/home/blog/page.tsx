@@ -54,7 +54,7 @@ export default function BlogPage() {
     })
     setIsModalOpen(true);
   }
-  
+
   const handleSubmit = async (e: React.FormEvent, status: "draft" | "active") => {
     e.preventDefault();
     if (status === "active") {
@@ -266,6 +266,8 @@ export default function BlogPage() {
               {activePosts.length === 0 && (
                 <p className="text-gray-500">No active posts</p>
               )}
+
+
               {/* <div className="flex flex-col w-[450px] border-2 border-gray-300 rounded-md p-4">
                   <p>2025-05-28</p>
                   <div className="flex flex-col mt-2">
