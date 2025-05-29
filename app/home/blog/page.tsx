@@ -17,12 +17,13 @@ export default function BlogPage() {
   });
   const [activePosts, setActivePosts] = useState<Post[]>([]);
   const [draftPosts, setDraftPosts] = useState<Post[]>([]);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const supabase = createClientComponentClient();
 
   const fetchActivePosts = useCallback(async () => {
     const { data, error } = await supabase
       .from("posts")
-      .select("*")
+      .select("*, users!inner(username)")
       .eq("status", "active")
       .order("created_at", { ascending: false });
 
@@ -44,28 +45,70 @@ export default function BlogPage() {
       setDraftPosts(JSON.parse(savedDrafts));
     }
   }, []);
+
+  const handleEdit = (post: Post) => {
+    setEditingPost(post);
+    setFormData({
+      title: post.title,
+      content: post.content
+    })
+    setIsModalOpen(true);
+  }
   
   const handleSubmit = async (e: React.FormEvent, status: "draft" | "active") => {
     e.preventDefault();
-    
     if (status === "active") {
-      const { error } = await supabase
-      .from("posts")
-      .insert([
-        {
-          title: formData.title,
-          content: formData.content,
-          status: "active",
-          created_at: new Date().toISOString()
-        }
-      ])
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-      if (error) {
-        console.error("Error creating active post:", error);
+      if (userError ||!user) {
+        console.error("User not found");
+        return;
+      }
+
+      if (editingPost) {
+        const { error } = await supabase
+          .from("posts")
+          .update({
+            title: formData.title,
+            content: formData.content,
+            status: "active",
+            is_active: true,
+            user_id: user.id,
+            created_at: new Date().toISOString()
+          })
+          .eq("id", editingPost.id)
+          .select();
+
+        if (error) {
+          console.error("Error updating post:", error);
+        } else {
+          await fetchActivePosts();
+          setFormData({ title: "", content: "" });
+          setIsModalOpen(false);
+          setEditingPost(null);
+        }
       } else {
-        await fetchActivePosts();
-        setFormData({ title: "", content: "" });
-        setIsModalOpen(false);
+        const { error } = await supabase
+        .from("posts")
+        .insert([
+          {
+            title: formData.title,
+            content: formData.content,
+            status: "active",
+            is_active: true,
+            user_id: user.id,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select();
+
+        if (error) {
+          console.error("Error creating active post:", error);
+        } else {
+          await fetchActivePosts();
+          setFormData({ title: "", content: "" });
+          setIsModalOpen(false);
+        }
       }
     } else {
       const newDraft = {
@@ -97,7 +140,9 @@ export default function BlogPage() {
           {isModalOpen && (
             <div className="fixed inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center">
             <div className="bg-white p-6 rounded-lg w-[500px] border-2 border-gray-300">
-              <h2 className="text-2xl font-bold mb-4">Create New Blog Post</h2>
+              <h2 className="text-2xl font-bold mb-4">
+                {editingPost ? "Edit Blog Post" : "Create New Blog Post"}
+              </h2>
               <form onSubmit={(e) => handleSubmit(e, "draft")} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Title</label>
@@ -161,7 +206,10 @@ export default function BlogPage() {
                   <h2 className="text-2xl font-semibold">{post.title}</h2>
                   <p>{post.content}</p>
                   <div className="flex justify-around gap-2 mt-2">
-                    <button className="bg-primary text-black px-15 py-2 rounded-md border-2 border-gray-300 hover:bg-primary/80">
+                    <button 
+                      onClick={() => handleEdit(post)}
+                      className="bg-primary text-black px-15 py-2 rounded-md border-2 border-gray-300 hover:bg-primary/80"
+                    >
                       Edit
                     </button>
                     <button 

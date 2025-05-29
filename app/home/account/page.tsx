@@ -16,6 +16,9 @@ export default function AccountPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ general?: string }>({});
+  const [isSaving, setIsSaving] = useState(false);
+
   const supabase = createClientComponentClient();
 
   const fetchUserProfile = useCallback(async () => {
@@ -67,33 +70,74 @@ export default function AccountPage() {
   };
 
   const handleSaveProfile = async () => {
-    if (!profile || !avatarUrl) return;
+    if (!profile || !avatarUrl || isSaving) return;
+    setIsSaving(true);
 
     try {
+      const { data: {session}, error: sessionError } = await supabase.auth.getSession();
+      console.log("Session:", session);
+
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw sessionError;
+      }
+      if (!session) {
+        console.error("No active session");
+        throw new Error("No active session");
+      }
+
+      console.log("Uploading file...")
       const fileExt = avatarUrl.name.split('.').pop();
       const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(fileName, avatarUrl);
+        .upload(fileName, avatarUrl, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      };
+      
+      console.log("Upload successful, updating database...", uploadData);
 
       const { data: { publicUrl } } = supabase.storage
-        .from("users")
+        .from("avatars")
         .getPublicUrl(fileName);
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', profile.id);
+      console.log("Public URL:", publicUrl);
 
-      if (updateError) throw updateError;
+      const { data: updateData, error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          avatar_url: publicUrl,
+          //avatar_: new Date().toISOString()
+        })
+        .eq('id', profile.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Update error:", updateError);
+        throw updateError;
+      }
+
+      console.log("Update successful, new profile:", updateData);
 
       await fetchUserProfile();
       setIsEditing(false);
       setAvatarUrl(null);
+      setIsSaving(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+
+      setErrors(prev => ({
+        ...prev,
+        general: error instanceof Error ? error.message : "failed to update profile"
+      }));
     }
   }
 
@@ -166,6 +210,12 @@ export default function AccountPage() {
                 >
                   Cancel
                 </button>
+              </div>
+            )}
+
+            {errors.general && (
+              <div className="text-red-500 text-sm mt-2">
+                {errors.general}
               </div>
             )}
           </div>
